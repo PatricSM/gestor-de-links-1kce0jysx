@@ -1,4 +1,4 @@
-import { Copy, ExternalLink, MoreVertical, Star, Trash } from 'lucide-react'
+import { Copy, ExternalLink, MoreVertical, Pencil, Trash } from 'lucide-react'
 import { Card, CardContent, CardFooter, CardHeader } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -10,20 +10,11 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 import { useToast } from '@/hooks/use-toast'
-import { LinkItem, useAppState } from '@/hooks/use-app-state'
-import { cn } from '@/lib/utils'
+import { deleteLink, LinkRecord } from '@/services/links'
+import { LinkDialog } from './LinkDialog'
 
-interface LinkCardProps {
-  link: LinkItem
-  layout?: 'grid' | 'list'
-}
-
-export function LinkCard({ link, layout = 'grid' }: LinkCardProps) {
-  const { toggleFavorite, deleteLink, collections } = useAppState()
+export function LinkCard({ link }: { link: LinkRecord }) {
   const { toast } = useToast()
-
-  const collection = collections.find((c) => c.id === link.collectionId)
-  const isList = layout === 'list'
 
   const copyToClipboard = async () => {
     try {
@@ -37,45 +28,23 @@ export function LinkCard({ link, layout = 'grid' }: LinkCardProps) {
     }
   }
 
-  const hostname = new URL(link.url).hostname
-
-  if (isList) {
-    return (
-      <Card className="flex items-center justify-between p-3 hover:shadow-md transition-all group animate-fade-in-up">
-        <div className="flex items-center gap-4 overflow-hidden">
-          <img
-            src={`https://www.google.com/s2/favicons?domain=${hostname}&sz=32`}
-            alt=""
-            className="h-8 w-8 rounded"
-          />
-          <div className="grid gap-0.5">
-            <h4 className="font-medium leading-none truncate max-w-[200px] sm:max-w-md">
-              {link.title}
-            </h4>
-            <p className="text-xs text-muted-foreground truncate">{link.url}</p>
-          </div>
-        </div>
-        <div className="flex items-center gap-2">
-          {collection && (
-            <Badge variant="secondary" className="hidden md:inline-flex">
-              {collection.name}
-            </Badge>
-          )}
-          <Button variant="ghost" size="icon" onClick={copyToClipboard} title="Copiar URL">
-            <Copy className="h-4 w-4" />
-          </Button>
-          <Button variant="ghost" size="icon" asChild title="Abrir em nova guia">
-            <a href={link.url} target="_blank" rel="noreferrer">
-              <ExternalLink className="h-4 w-4" />
-            </a>
-          </Button>
-        </div>
-      </Card>
-    )
+  const handleDelete = async () => {
+    try {
+      await deleteLink(link.id)
+      toast({ title: 'Link excluído!' })
+    } catch (err) {
+      toast({
+        variant: 'destructive',
+        title: 'Erro',
+        description: 'Não foi possível excluir o link.',
+      })
+    }
   }
 
+  const hostname = new URL(link.url).hostname
+
   return (
-    <Card className="flex flex-col h-full hover:shadow-md transition-all hover:scale-[1.02] animate-fade-in-up group">
+    <Card className="flex flex-col h-full hover:shadow-md transition-all hover:-translate-y-1 animate-fade-in-up group">
       <CardHeader className="flex flex-row items-start justify-between space-y-0 pb-2 p-4">
         <div className="flex items-center gap-3 overflow-hidden">
           <div className="bg-secondary p-2 rounded-md shrink-0">
@@ -83,6 +52,9 @@ export function LinkCard({ link, layout = 'grid' }: LinkCardProps) {
               src={`https://www.google.com/s2/favicons?domain=${hostname}&sz=64`}
               alt=""
               className="h-6 w-6"
+              onError={(e) => {
+                e.currentTarget.src = 'https://img.usecurling.com/i?q=globe&shape=lineal-color'
+              }}
             />
           </div>
           <div className="grid gap-1">
@@ -103,39 +75,36 @@ export function LinkCard({ link, layout = 'grid' }: LinkCardProps) {
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">
-            <DropdownMenuItem onClick={() => toggleFavorite(link.id)}>
-              <Star className={cn('mr-2 h-4 w-4', link.isFavorite && 'fill-accent text-accent')} />
-              {link.isFavorite ? 'Remover Favorito' : 'Favoritar'}
-            </DropdownMenuItem>
-            <DropdownMenuItem onClick={copyToClipboard}>
+            <LinkDialog link={link}>
+              <DropdownMenuItem onSelect={(e) => e.preventDefault()} className="cursor-pointer">
+                <Pencil className="mr-2 h-4 w-4" /> Editar
+              </DropdownMenuItem>
+            </LinkDialog>
+            <DropdownMenuItem onClick={copyToClipboard} className="cursor-pointer">
               <Copy className="mr-2 h-4 w-4" /> Copiar Link
             </DropdownMenuItem>
             <DropdownMenuSeparator />
             <DropdownMenuItem
-              onClick={() => deleteLink(link.id)}
-              className="text-destructive focus:text-destructive"
+              onClick={handleDelete}
+              className="text-destructive focus:text-destructive cursor-pointer"
             >
               <Trash className="mr-2 h-4 w-4" /> Excluir
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
       </CardHeader>
-      <CardContent className="p-4 pt-2 flex-grow">
-        {link.tags.length > 0 && (
-          <div className="flex flex-wrap gap-1 mt-2">
-            {link.tags.map((tag) => (
-              <Badge key={tag} variant="outline" className="text-[10px] font-normal px-1.5 py-0">
-                #{tag}
-              </Badge>
-            ))}
-          </div>
+      <CardContent className="p-4 pt-2 flex-grow flex flex-col gap-2">
+        {link.description && (
+          <p className="text-sm text-muted-foreground line-clamp-2" title={link.description}>
+            {link.description}
+          </p>
         )}
       </CardContent>
       <CardFooter className="p-4 pt-0 flex justify-between items-center border-t mt-auto">
         <div className="flex items-center gap-1">
-          {collection && (
+          {link.category && (
             <Badge variant="secondary" className="text-xs font-normal">
-              {collection.name}
+              {link.category}
             </Badge>
           )}
         </div>

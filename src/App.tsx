@@ -1,31 +1,39 @@
-import { BrowserRouter, Routes, Route } from 'react-router-dom'
+import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { Toaster } from '@/components/ui/toaster'
 import { Toaster as Sonner } from '@/components/ui/sonner'
 import { TooltipProvider } from '@/components/ui/tooltip'
-import { AppStateProvider } from '@/hooks/use-app-state'
+import { AuthProvider, useAuth } from '@/hooks/use-auth'
 import Index from './pages/Index'
-import Links from './pages/Links'
-import Collections from './pages/Collections'
+import Login from './pages/Login'
+import Register from './pages/Register'
 import NotFound from './pages/NotFound'
 import Layout from './components/Layout'
 
+const ProtectedRoute = () => {
+  const { user, loading } = useAuth()
+  if (loading)
+    return <div className="min-h-screen flex items-center justify-center">Carregando...</div>
+  if (!user) return <Navigate to="/login" replace />
+  return <Layout />
+}
+
 const App = () => (
-  <AppStateProvider>
+  <AuthProvider>
     <BrowserRouter future={{ v7_startTransition: false, v7_relativeSplatPath: false }}>
       <TooltipProvider>
         <Toaster />
         <Sonner />
         <Routes>
-          <Route element={<Layout />}>
+          <Route path="/login" element={<Login />} />
+          <Route path="/register" element={<Register />} />
+          <Route element={<ProtectedRoute />}>
             <Route path="/" element={<Index />} />
-            <Route path="/links" element={<Links />} />
-            <Route path="/collections" element={<Collections />} />
           </Route>
           <Route path="*" element={<NotFound />} />
         </Routes>
       </TooltipProvider>
     </BrowserRouter>
-  </AppStateProvider>
+  </AuthProvider>
 )
 
 export default App
